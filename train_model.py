@@ -33,18 +33,68 @@ y_test_padded_save_path = 'data/Y_test_padded.npy'
 model = load_model('speech-to-text-fr-model.keras')
 
 
-def load_saved_dataset(x_path, y_path):
-    # Load the features array
-    features_array = np.load(x_path)
-    
-    # Load the labels list
-    labels_array = np.load(y_path)
-    
-    return features_array, labels_array
+from keras.utils import Sequence
+import numpy as np
+import pandas as pd
+import os
 
-X_train, Y_train = load_saved_dataset(x_train_save_path, y_train_padded_save_path)
-X_dev, Y_dev = load_saved_dataset(x_dev_save_path, y_dev_padded_save_path)
-X_test, Y_test = load_saved_dataset(x_test_save_path, y_test_padded_save_path)
+class DataGenerator(Sequence):
+    def __init__(self, x_set_path, y_set_path, batch_size=32, shuffle=True):
+        # Load the entire dataset into memory if it fits, else modify as needed
+        self.x_set = np.load(x_set_path, mmap_mode='r+')
+        self.y_set = np.load(y_set_path, mmap_mode='r+')
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.indexes = np.arange(len(self.x_set))
+        self.on_epoch_end()
+
+    def __len__(self):
+        # Denotes the number of batches per epoch
+        return int(np.ceil(len(self.x_set) / self.batch_size))
+
+    def __getitem__(self, index):
+        # Generate indexes of the batch
+        indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
+        
+        # Generate data
+        X = self.x_set[indexes]
+        y = self.y_set[indexes]
+
+        return X, y
+
+    def on_epoch_end(self):
+        # Updates indexes after each epoch
+        if self.shuffle:
+            np.random.shuffle(self.indexes)
+
+# Parameters
+batch_size = 32
+
+# Parameters
+params = {
+    'dim': (40, 11279),
+    'batch_size': 32,
+    'n_channels': 1,
+    'shuffle': True
+}
+
+# Datasets
+partition = {
+    'train': x_dev_save_path,  # Define your paths
+    'validation': x_test_save_path
+}# some dictionary containing your train/test split of file paths
+labels = {
+    'train': y_dev_padded_save_path,  # Define your paths
+    'validation': y_test_padded_save_path
+}# a dictionary containing all your labels for each file path
+
+# Generators
+training_generator = DataGenerator(partition['train'], labels['train'], batch_size)
+validation_generator = DataGenerator(partition['validation'], labels['validation'], batch_size)
+
+# Train model on dataset
+history = model.fit(training_generator, validation_data=validation_generator, epochs=10)
+
 
 
 # Define callbacks (optional)
@@ -55,16 +105,16 @@ callbacks = [
 
 # Start training
 history = model.fit(
-    X_dev, Y_dev,
-    validation_data=(X_test, Y_test),
+    training_generator, validation_data=validation_generator,
     epochs=10,  # You can adjust the number of epochs
     batch_size=32,  # And the batch size
     callbacks=callbacks,
+    use_multiprocessing=True, workers=6,
     verbose=1
 )
 
 # After training, evaluate your model on the test set
-test_loss, test_accuracy = model.evaluate(X_test, Y_test, verbose=1)
+test_loss, test_accuracy = model.evaluate(validation_generator, verbose=1)
 print(f"Test Loss: {test_loss}, Test Accuracy: {test_accuracy}")
 
 # Optionally, you can plot the training history:

@@ -32,7 +32,7 @@ y_test_padded_save_path = 'data/Y_test_padded.npy'
 
 def load_saved_dataset(x_path, y_path):
     # Load the features array
-    features_array = np.load(x_path)
+    features_array = np.load(x_path, mmap_mode='r')
     
     # Load the labels list
     with open(y_path, 'rb') as f:
@@ -43,6 +43,13 @@ def load_saved_dataset(x_path, y_path):
 X_train, Y_train = load_saved_dataset(x_train_save_path, y_train_save_path)
 X_dev, Y_dev = load_saved_dataset(x_dev_save_path, y_dev_save_path)
 X_test, Y_test = load_saved_dataset(x_test_save_path, y_test_save_path)
+
+# X_train = np.transpose(X_train, (0, 2, 1, 3))
+# np.save(x_train_save_path, X_train)
+X_dev = np.transpose(X_dev, (0, 2, 1, 3))
+np.save(x_dev_save_path, X_dev)
+X_test = np.transpose(X_test, (0, 2, 1, 3))
+np.save(x_test_save_path, X_test)
 
 
 # Initialize the tokenizer with char-level encoding

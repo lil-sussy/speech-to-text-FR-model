@@ -123,6 +123,7 @@ def generate_dataset(tsv_path, audio_files_path, x_save_path, y_save_path, max_p
     labels_array = np.array(labels)
     with open(y_save_path, 'wb') as f:
         pickle.dump(labels_array, f)
+    return features_array, labels_array
 
 # Define paths
 x_train_save_path = 'data/X_train.npy'
@@ -132,11 +133,27 @@ y_dev_save_path = 'data/Y_dev.pickle'
 x_test_save_path = 'data/X_test.npy'
 y_test_save_path = 'data/Y_test.pickle'
 
+print("Loading dev dataset...")
+durations_path = '../dataset/fr/clip_durations.tsv'
+
+clip_durations = pd.read_csv(durations_path, sep='\t', header=None)
+# Display the first few entries to understand the data structure
+clip_durations.head()
+# Drop the first row which contains the header information
+
+clip_durations_cleaned = clip_durations.drop(0)
+# Convert the duration column to numeric, ignoring errors
+clip_durations_cleaned[1] = pd.to_numeric(clip_durations_cleaned[1], errors='coerce')
+
+# Find the maximum duration value
+max_duration_ms = clip_durations_cleaned[1].max()
+hop_length_ms = 10  # This is a typical value, but it should be set to whatever you used during feature extraction
+max_pad_len = max_duration_ms / hop_length_ms
+max_pad_len = np.ceil(max_pad_len).astype(int)
 # Load the datasets
 # print("Loading train dataset...")
-# X_train, Y_train = load_dataset(train_tsv_path, audio_files_path, x_train_save_path, y_train_save_path)
-print("Loading dev dataset...")
-X_dev, Y_dev = generate_dataset(dev_tsv_path, audio_files_path, x_dev_save_path, y_dev_save_path)
+# X_train, Y_train = load_dataset(train_tsv_path, audio_files_path, x_train_save_path, y_train_save_path, max_pad_len)
+X_dev, Y_dev = generate_dataset(dev_tsv_path, audio_files_path, x_dev_save_path, y_dev_save_path, max_pad_len)
 print("Loading test dataset...")
-X_test, Y_test = generate_dataset(test_tsv_path, audio_files_path, x_test_save_path, y_test_save_path)
+X_test, Y_test = generate_dataset(test_tsv_path, audio_files_path, x_test_save_path, y_test_save_path, max_pad_len)
 
